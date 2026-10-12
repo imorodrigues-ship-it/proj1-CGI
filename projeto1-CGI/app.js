@@ -9,7 +9,10 @@ let gl;
 let program;
 let quad_vao; //vao for triangles
 let sites_vao; //vao for points (sites)
-let sites_out_vao;
+
+//uniform vars for site drawing and zoom
+let u_points, u_size, u_color, u_in;
+let u_center, u_scale, u_world_half_width;
 
 //variables used on the event listener
 let down = null;
@@ -77,7 +80,14 @@ function to_world(x, y) {
 
 // dy > 0 when the wheel is scrolled down (towards the user)
 function on_wheel(x, y, dy) {
+        let before = to_world(x,y);
 
+        scale = Math.min(4.0, Math.max(0.2, scale * (1 + dy / 1000)));
+
+        let after = to_world(x,y);
+
+        center[0] += before[0] - after[0];
+        center[1] += before[1] - after[1];
 }
 
 function on_key(key) {
@@ -132,6 +142,16 @@ function setup(shaders) {
         -1, -1, 1, 1, -1, 1,       // second triangle
     ]);
 
+    u_points = gl.getUniformLocation(program, "u_points");      //changes based on what to draw (background or sites)
+    u_size = gl.getUniformLocation(program, "u_pointSize");     //changes based on what site to draw (main or outer layers)
+    u_in = gl.getUniformLocation(program, "u_in");              //changes based on what color to use (random color or given)
+    u_color = gl.getUniformLocation(program, "u_color");        //passed given color
+
+    //uniforms for zoom
+    u_center = gl.getUniformLocation(program, "u_center"); 
+    u_scale = gl.getUniformLocation(program, "u_scale"); 
+    u_world_half_width = gl.getUniformLocation(program, "u_world_half_width");
+
     const a_position = gl.getAttribLocation(program, "a_position");
     const a_color = gl.getAttribLocation(program, "a_color");
 
@@ -181,10 +201,10 @@ function animate(timestamp) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(program);
-    const u_points = gl.getUniformLocation(program, "u_points"); //changes based on what to draw (background or sites)
-    const u_size = gl.getUniformLocation(program, "u_pointSize"); //changes based on what site to draw (main or outer layers)
-    const u_in = gl.getUniformLocation(program, "u_in"); //changes based on what color to use (random color or given)
-    const u_color = gl.getUniformLocation(program, "u_color");
+
+    gl.uniform2fv(u_center, center);
+    gl.uniform1f(u_scale, scale);
+    gl.uniform1f(u_world_half_width, WORLD_HALF_WIDTH);
 
     //background draw
     gl.bindVertexArray(quad_vao);
