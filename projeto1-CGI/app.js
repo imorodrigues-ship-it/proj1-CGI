@@ -15,6 +15,7 @@ let u_points, u_size, u_color, u_in;
 let u_center, u_scale, u_world_half_width;
 
 //variables used on the event listener
+//dragged defines index of site being dragged (-1 if canvas)
 let down = null;
 let last = null;
 let moved = false;
@@ -24,9 +25,10 @@ let dragged = -1;
 let sitesBuffer;
 let colorBuffer;
 
+//variables regarding canvas center, scale and current mouse coordinates
 let center = [0.0, 0.0];
-let here = null;
 let scale = 1.0;
+let here = null;
 
 const WORLD_HALF_WIDTH = 1.0;
 const MAX_SITES = 32;
