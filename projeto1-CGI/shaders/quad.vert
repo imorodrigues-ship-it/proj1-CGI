@@ -14,9 +14,8 @@ out vec4 v_color;
 void main() {
     gl_Position = vec4((a_position.xy - u_center) / (u_scale * u_world_half_width), 0.0, 1.0);
     v_color = a_color;
-    if (u_pointSize == 0) {
-        gl_PointSize = 16.0;
-    } else if (u_pointSize == 1) {
-        gl_PointSize = 15.0;
-    } else gl_PointSize = 11.0;
+    
+    if (u_pointSize == 0) gl_PointSize = 16.0;
+    else if (u_pointSize == 1) gl_PointSize = 15.0;
+    else gl_PointSize = 11.0;
 }

@@ -1,5 +1,5 @@
 import { loadShadersFromURLS, buildProgramFromSources, setupWebGL } from "../../libs/utils.js";
-import { vec2, flatten } from "../../libs/MV.js";
+import { vec2, vec4, flatten } from "../../libs/MV.js";
 
 /** @type {HTMLCanvasElement} */
 let canvas;
@@ -8,7 +8,7 @@ let gl;
 
 let program;
 let quad_vao; //vao for triangles
-let sites_vao; //vao for points (sites)
+let sites_vao; //vao for sites
 
 //uniform vars for site drawing and zoom
 let u_points, u_size, u_color, u_in;
@@ -18,12 +18,14 @@ let u_center, u_scale, u_world_half_width;
 let down = null;
 let last = null;
 let moved = false;
+let dragged = -1;
 
 //variables regarding sites positions and colors
 let sitesBuffer;
 let colorBuffer;
 
 let center = [0.0, 0.0];
+let here = null;
 let scale = 1.0;
 
 const WORLD_HALF_WIDTH = 1.0;
@@ -37,14 +39,61 @@ const colors = [];
 // top-left corner and y growing downwards.
 // ---------------------------------------------------------------------------
 
+//converting pixel positions into world coordinations
+function to_world(x, y) {
+    const nx = (x / canvas.width) * 2 - 1;
+    const ny = 1 - (y / canvas.height) * 2;
+
+    return vec2(
+        nx * WORLD_HALF_WIDTH * scale + center[0],
+        ny * WORLD_HALF_WIDTH * scale + center[1]
+    );
+}
+
+//converting world coordinations into pixel positions
+function to_screen(x, y) {
+    const nx = (x - center[0]) / (scale * WORLD_HALF_WIDTH);
+    const ny = (y - center[1]) / (scale * WORLD_HALF_WIDTH);
+
+    return [
+        (nx + 1) / 2 * canvas.width,
+        (1 - ny) / 2 * canvas.height
+    ];
+}
+
+function pan(dx, dy) {
+    const world_units_per_pixel = (2 * WORLD_HALF_WIDTH * scale) / canvas.width;
+    center[0] -= dx * world_units_per_pixel;
+    center[1] += dy * world_units_per_pixel;
+}
+
 function on_mouse_down(x, y) {
     down = [x, y];
     last = down;
     moved = false;
 }
 
+//mouse "drag": moves a site if drag occurs in one's position, pans canvas otherwise 
 function on_mouse_move(x, y) {
+    here = [x, y];
+    if (down === null) return;
 
+    if (!moved && Math.hypot(here[0] - down[0], here[1] - down[1]) <= 4) return;
+    
+    if (!moved) {
+        for (let i = 0; i < sites.length; i++) {
+            let curr = to_screen(sites[i][0], sites[i][1]);
+            if (Math.hypot(curr[0] - down[0], curr[1] - down[1]) <= 8) dragged = i;
+        }
+    }
+    moved = true;
+
+    if (dragged >= 0) {
+        sites[dragged] = to_world(x,y);
+        gl.bindBuffer(gl.ARRAY_BUFFER, sitesBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, dragged * 2 * 4, new Float32Array(sites[dragged]));
+    } else pan(x - last[0], y - last[1]);
+    last = here;
 }
 
 //mouse "click": creates a random colored site
@@ -55,27 +104,16 @@ function on_mouse_up(x, y) {
             return; 
         }
         sites.push(to_world(x, y));
-        console.log(sites);
-        colors.push(Math.random(), Math.random(), Math.random(), 1.0)
+        colors.push(vec4(Math.random(), Math.random(), Math.random(), 1.0));
 
         gl.bindBuffer(gl.ARRAY_BUFFER, sitesBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, flatten(sites), gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW)
+        gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW);
     }
     down = null;
-}
-
-//converting site coordinates into canvas positions
-function to_world(x, y) {
-    const nx = (x / canvas.width) * 2 - 1;
-    const ny = 1 - (y / canvas.height) * 2;
-
-    return vec2(
-        nx * WORLD_HALF_WIDTH * scale + center[0],
-        ny * WORLD_HALF_WIDTH * scale + center[1]
-    );
+    dragged = -1;
 }
 
 // dy > 0 when the wheel is scrolled down (towards the user)
@@ -100,8 +138,30 @@ function on_key(key) {
             break;
         case 'b':       // toggle cell borders
             break;
-        case 'x':       // remove the site under the pointer
+        case 'x': {
+            if (here == null) return;
+
+            let minDist = -1;
+            let minIndex = -1;
+            for (let i = 0; i < sites.length; i++) { 
+                const curr = to_screen(sites[i][0], sites[i][1]);
+                const currDist = Math.hypot(here[0] - curr[0], here[1] - curr[1]);
+                if (minDist < 0 || currDist < minDist) {
+                    minDist = currDist;
+                    minIndex = i;
+                }
+            }
+            if (minDist < 0) return;
+
+            sites.splice(minIndex, 1);
+            gl.bindBuffer(gl.ARRAY_BUFFER, sitesBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(sites));
+
+            colors.splice(minIndex, 1);
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(colors));
             break;
+        }
         case 'm':       // switch rendering technique / split view
             break;
     }
