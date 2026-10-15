@@ -153,7 +153,8 @@ function on_key(key) {
                     minIndex = i;
                 }
             }
-            if (minDist < 0) return;
+            //threshold for site remove
+            if (minDist < 0 || minDist > 20) return;
 
             sites.splice(minIndex, 1);
             gl.bindBuffer(gl.ARRAY_BUFFER, sitesBuffer);
