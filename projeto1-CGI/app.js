@@ -10,16 +10,21 @@ let program;
 let quad_vao; //vao for triangles
 let sites_vao; //vao for sites
 
-//uniform vars for site drawing and zoom
-let u_points, u_size, u_color, u_in;
-let u_center, u_scale, u_world_half_width;
+//uniform vars
+let u_points, u_size, u_color, u_in, u_isborderon;
+let u_center, u_scale, u_world_half_width, u_canvas;
+let u_numsites, u_sites, u_colors, u_distance;
 
-//variables used on the event listener
-//dragged defines index of site being dragged (-1 if canvas)
+//variables used on the event listener, border to know when its active
 let down = null;
 let last = null;
 let moved = false;
+let border = false;
+
+//dragged defines index of site being dragged (-1 if canvas)
+//distance refers to which metric is being applied (0 for euclidian, 1 for manhattan, 2 for chebyshev)
 let dragged = -1;
+let distance = 0;
 
 //variables regarding sites positions and colors
 let sitesBuffer;
@@ -45,17 +50,19 @@ const colors = [];
 function to_world(x, y) {
     const nx = (x / canvas.width) * 2 - 1;
     const ny = 1 - (y / canvas.height) * 2;
+    const aspect = canvas.height / canvas.width;
 
     return vec2(
         nx * WORLD_HALF_WIDTH * scale + center[0],
-        ny * WORLD_HALF_WIDTH * scale + center[1]
+        ny * aspect * WORLD_HALF_WIDTH * scale + center[1]
     );
 }
 
 //converting world coordinations into pixel positions
 function to_screen(x, y) {
+    const aspect = canvas.height / canvas.width;
     const nx = (x - center[0]) / (scale * WORLD_HALF_WIDTH);
-    const ny = (y - center[1]) / (scale * WORLD_HALF_WIDTH);
+    const ny = (y - center[1]) / (scale * WORLD_HALF_WIDTH * aspect);
 
     return [
         (nx + 1) / 2 * canvas.width,
@@ -132,13 +139,17 @@ function on_wheel(x, y, dy) {
 
 function on_key(key) {
     switch (key) {
-        case '1':       // Euclidean distance
+        case '1':
+            distance = 0;
             break;
-        case '2':       // Manhattan distance
+        case '2':
+            distance = 1;
             break;
-        case '3':       // Chebyshev distance
+        case '3':
+            distance = 2;
             break;
-        case 'b':       // toggle cell borders
+        case 'b':
+            border = !border;
             break;
         case 'x': {
             if (here == null) return;
@@ -205,15 +216,23 @@ function setup(shaders) {
         -1, -1, 1, 1, -1, 1,       // second triangle
     ]);
 
-    u_points = gl.getUniformLocation(program, "u_points");      //changes based on what to draw (background or sites)
-    u_size = gl.getUniformLocation(program, "u_pointSize");     //changes based on what site to draw (main or outer layers)
-    u_in = gl.getUniformLocation(program, "u_in");              //changes based on what color to use (random color or given)
-    u_color = gl.getUniformLocation(program, "u_color");        //passed given color
+    u_points = gl.getUniformLocation(program, "u_points");           //changes based on what is being controlled (background or sites)
+    u_size = gl.getUniformLocation(program, "u_size");               //changes based on what site to draw (main or outer layers)
+    u_in = gl.getUniformLocation(program, "u_in");                   //changes based on what color to use (random color or given)
+    u_color = gl.getUniformLocation(program, "u_color");             //passed given color
+    u_isborderon = gl.getUniformLocation(program, "u_isborderon");   //alerts the frag shader if borders are on
 
-    //uniforms for zoom
+    //uniforms operating with world coordinates
     u_center = gl.getUniformLocation(program, "u_center"); 
     u_scale = gl.getUniformLocation(program, "u_scale"); 
     u_world_half_width = gl.getUniformLocation(program, "u_world_half_width");
+    u_canvas = gl.getUniformLocation(program, "u_canvas");
+
+    //uniforms for distance coloring
+    u_distance = gl.getUniformLocation(program, "u_distance");
+    u_numsites = gl.getUniformLocation(program, "u_numsites");
+    u_sites = gl.getUniformLocation(program, "u_sites");
+    u_colors = gl.getUniformLocation(program, "u_colors");
 
     const a_position = gl.getAttribLocation(program, "a_position");
     const a_color = gl.getAttribLocation(program, "a_color");
@@ -268,6 +287,12 @@ function animate(timestamp) {
     gl.uniform2fv(u_center, center);
     gl.uniform1f(u_scale, scale);
     gl.uniform1f(u_world_half_width, WORLD_HALF_WIDTH);
+    gl.uniform2fv(u_canvas, vec2(canvas.width, canvas.height));
+    gl.uniform1i(u_numsites, sites.length);
+    gl.uniform2fv(u_sites, flatten(sites));
+    gl.uniform4fv(u_colors, flatten(colors));
+    gl.uniform1i(u_distance, distance);
+    gl.uniform1i(u_isborderon, border);
 
     //background draw
     gl.bindVertexArray(quad_vao);
@@ -294,7 +319,6 @@ function animate(timestamp) {
     gl.drawArrays(gl.POINTS, 0, sites.length);
 
     gl.bindVertexArray(null);
-    //gl.useProgram(null);
 }
 
 loadShadersFromURLS(["quad.vert", "quad.frag"]).then(shaders => setup(shaders));
