@@ -1,6 +1,6 @@
 #version 300 es
 
-//uniforms related to site points
+//uniforms related to site layers (black/white line and filling)
 uniform int u_size;
 
 //uniforms related to site positions
@@ -23,10 +23,7 @@ void main() {
 
   v_color = a_color;
 
-  if(u_size == 0)
-    gl_PointSize = 16.0f;
-  else if(u_size == 1)
-    gl_PointSize = 15.0f;
-  else
-    gl_PointSize = 11.0f;
+  if (u_size == 0) gl_PointSize = 16.0f;
+  else if(u_size == 1) gl_PointSize = 15.0f;
+  else gl_PointSize = 11.0f;
 }

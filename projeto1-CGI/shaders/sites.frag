@@ -13,11 +13,8 @@ void main() {
 
   float d = distance(gl_PointCoord, vec2(0.5f, 0.5f));
 
-  if(d > 0.5f || d < 0.3f)
-    discard;
+  if (d > 0.5f || d < 0.3f) discard;
 
-  if(u_in)
-    color = v_color;
-  else
-    color = u_color;
+  if (u_in) color = v_color;
+  else color = u_color;
 }

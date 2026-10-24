@@ -39,12 +39,9 @@ void main() {
   for(int i = 0; i < u_numsites; i++) {
     vec2 curr = abs(world_coord - u_sites[i]);
 
-    if(u_distance == 0)
-      d = distance(world_coord, u_sites[i]);
-    else if(u_distance == 1)
-      d = curr.x + curr.y;
-    else
-      d = max(curr.x, curr.y);
+    if (u_distance == 0) d = distance(world_coord, u_sites[i]);
+    else if(u_distance == 1) d = curr.x + curr.y;
+    else d = max(curr.x, curr.y);
 
     if(d < best) {
       second = best;
@@ -55,8 +52,6 @@ void main() {
   }
 
   float threshold = 5.0f * u_scale * u_world_half_width / u_canvas.x;
-  if(u_isborderon && (second - best) < threshold)
-    color = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-  else
-    color = u_colors[bestIdx];
+  if (u_isborderon && (second - best) < threshold) color = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+  else color = u_colors[bestIdx];
 }

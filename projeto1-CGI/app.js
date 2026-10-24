@@ -6,16 +6,15 @@ let canvas;
 /** @type {WebGL2RenderingContext} */
 let gl;
 
-let pointsProgram;
+let sitesProgram;
 let areasProgram;
 let quad_vao; //vao for triangles
 let sites_vao; //vao for sites
 
 //uniform vars
-let u_size, u_color, u_in, u_isborderon;
-let points_center, points_scale, points_world_half_width, points_canvas;
-let area_center, area_scale, area_world_half_width, area_canvas;
+let u_arealoc, u_sitesloc;
 let u_numsites, u_sites, u_colors, u_distance;
+let u_size, u_color, u_in, u_isborderon;
 
 //variables used on the event listener, border to know when its active
 let down = null;
@@ -222,13 +221,22 @@ function setup_input()
     window.addEventListener("keydown", (event) => on_key(event.key));
 }
 
+function common_uniforms(prog) 
+{
+    return {
+        center: gl.getUniformLocation(prog, "u_center"),
+        scale: gl.getUniformLocation(prog, "u_scale"),
+        world_half_width: gl.getUniformLocation(prog, "u_world_half_width"),
+        canvas: gl.getUniformLocation(prog, "u_canvas"),
+    };
+}
+
 function setup(shaders)
 {
     canvas = document.getElementById("gl-canvas");
     gl = setupWebGL(canvas);
 
-    pointsProgram = buildProgramFromSources(gl, shaders["points.vert"], shaders["points.frag"]);
-
+    sitesProgram = buildProgramFromSources(gl, shaders["sites.vert"], shaders["sites.frag"]);
     areasProgram = buildProgramFromSources(gl, shaders["areas.vert"], shaders["areas.frag"]);
 
     // A quad covering the whole viewport, as two triangles: its corners are
@@ -238,33 +246,26 @@ function setup(shaders)
         -1, -1, 1, 1, -1, 1,       // second triangle
     ]);
 
-    u_size = gl.getUniformLocation(pointsProgram, "u_size");               //changes based on what site to draw (main or outer layers)
-    u_in = gl.getUniformLocation(pointsProgram, "u_in");                   //changes based on what color to use (random color or given)
-    u_color = gl.getUniformLocation(pointsProgram, "u_color");             //passed given color
-    u_isborderon = gl.getUniformLocation(areasProgram, "u_isborderon");   //alerts the frag shader if borders are on
-
-    //uniforms operating with world coordinates
-    area_center = gl.getUniformLocation(areasProgram, "u_center");
-    area_scale = gl.getUniformLocation(areasProgram, "u_scale");
-    area_world_half_width = gl.getUniformLocation(areasProgram, "u_world_half_width");
-    area_canvas = gl.getUniformLocation(areasProgram, "u_canvas");
-
-    //uniforms operating with world coordinates
-    points_center = gl.getUniformLocation(pointsProgram, "u_center");
-    points_scale = gl.getUniformLocation(pointsProgram, "u_scale");
-    points_world_half_width = gl.getUniformLocation(pointsProgram, "u_world_half_width");
-    points_canvas = gl.getUniformLocation(pointsProgram, "u_canvas");
-
+    //uniforms operating with world coordinates (areas)
+    u_arealoc = common_uniforms(areasProgram);
+    
     //uniforms for distance coloring
-    u_distance = gl.getUniformLocation(areasProgram, "u_distance");
     u_numsites = gl.getUniformLocation(areasProgram, "u_numsites");
     u_sites = gl.getUniformLocation(areasProgram, "u_sites");
     u_colors = gl.getUniformLocation(areasProgram, "u_colors");
+    u_distance = gl.getUniformLocation(areasProgram, "u_distance");
+    u_isborderon = gl.getUniformLocation(areasProgram, "u_isborderon");    //alerts the frag shader if borders are on
 
-    const pointsPosition = gl.getAttribLocation(pointsProgram, "a_position");
-    const a_color = gl.getAttribLocation(pointsProgram, "a_color");
+    //uniforms operating with world coordinates (sites)
+    u_sitesloc = common_uniforms(sitesProgram);
 
-    const areasPosition = gl.getAttribLocation(areasProgram, "a_position");
+    u_size = gl.getUniformLocation(sitesProgram, "u_size");               //changes based on what site to draw (main or outer layers)
+    u_in = gl.getUniformLocation(sitesProgram, "u_in");                   //changes based on what color to use (random color or given)
+    u_color = gl.getUniformLocation(sitesProgram, "u_color");             //passed given color
+
+    const a_areasPosition = gl.getAttribLocation(areasProgram, "a_position");
+    const a_sitesPosition = gl.getAttribLocation(sitesProgram, "a_position");
+    const a_color = gl.getAttribLocation(sitesProgram, "a_color");
 
     //configuring background
     quad_vao = gl.createVertexArray();
@@ -274,8 +275,8 @@ function setup(shaders)
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, corners, gl.STATIC_DRAW);
 
-    gl.enableVertexAttribArray(areasPosition);
-    gl.vertexAttribPointer(areasPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(a_areasPosition);
+    gl.vertexAttribPointer(a_areasPosition, 2, gl.FLOAT, false, 0, 0);
 
     //configuring sites
     sites_vao = gl.createVertexArray();
@@ -285,8 +286,8 @@ function setup(shaders)
     gl.bindBuffer(gl.ARRAY_BUFFER, sitesBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, MAX_SITES * 2 * 4, gl.STATIC_DRAW);
 
-    gl.enableVertexAttribArray(pointsPosition);
-    gl.vertexAttribPointer(pointsPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(a_sitesPosition);
+    gl.vertexAttribPointer(a_sitesPosition, 2, gl.FLOAT, false, 0, 0);
 
     colorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
@@ -306,6 +307,14 @@ function setup(shaders)
     window.requestAnimationFrame(animate);
 }
 
+function do_uniforms(loc) 
+{
+    gl.uniform2fv(loc.center, center);
+    gl.uniform1f(loc.scale, scale);
+    gl.uniform1f(loc.world_half_width, WORLD_HALF_WIDTH);
+    gl.uniform2fv(loc.canvas, vec2(canvas.width, canvas.height));
+}
+
 function animate(timestamp)
 {
     window.requestAnimationFrame(animate);
@@ -313,11 +322,7 @@ function animate(timestamp)
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(areasProgram);
-
-    gl.uniform2fv(area_center, center);
-    gl.uniform1f(area_scale, scale);
-    gl.uniform1f(area_world_half_width, WORLD_HALF_WIDTH);
-    gl.uniform2fv(area_canvas, vec2(canvas.width, canvas.height));
+    do_uniforms(u_arealoc);
 
     gl.uniform1i(u_numsites, sites.length);
     gl.uniform2fv(u_sites, flatten(sites));
@@ -329,13 +334,8 @@ function animate(timestamp)
     gl.bindVertexArray(quad_vao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    gl.useProgram(pointsProgram);
-
-    gl.uniform2fv(points_center, center);
-    gl.uniform1f(points_scale, scale);
-    gl.uniform1f(points_world_half_width, WORLD_HALF_WIDTH);
-    gl.uniform2fv(points_canvas, vec2(canvas.width, canvas.height));
-
+    gl.useProgram(sitesProgram);
+    do_uniforms(u_sitesloc);
 
     gl.bindVertexArray(sites_vao);
 
@@ -358,4 +358,4 @@ function animate(timestamp)
     gl.bindVertexArray(null);
 }
 
-loadShadersFromURLS(["points.vert", "points.frag", "areas.vert", "areas.frag"]).then(shaders => setup(shaders));
+loadShadersFromURLS(["sites.vert", "sites.frag", "areas.vert", "areas.frag"]).then(shaders => setup(shaders));
