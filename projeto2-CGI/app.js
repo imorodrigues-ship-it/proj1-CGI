@@ -1,0 +1,165 @@
+import { loadShadersFromURLS, buildProgramFromSources, setupWebGL } from "../../libs/utils.js";
+import { flatten, lookAt, ortho, vec3 } from "../../libs/MV.js";
+import * as STACK from "../../libs/stack.js";
+
+import * as CUBE from "../../libs/objects/cube.js";
+import * as SPHERE from "../../libs/objects/sphere.js";
+import * as CYLINDER from "../../libs/objects/cylinder.js";
+import * as PYRAMID from "../../libs/objects/pyramid.js";
+import * as TORUS from "../../libs/objects/torus.js";
+
+import { node, leaf, find, count_primitives, draw } from "./scenegraph.js";
+
+/** @type {HTMLCanvasElement} */
+let canvas;
+/** @type {WebGL2RenderingContext} */
+let gl;
+
+let program;
+
+const PRIMITIVES = { cube: CUBE, sphere: SPHERE, cylinder: CYLINDER, pyramid: PYRAMID, torus: TORUS };
+
+let scene;
+let zoom = 3;           // half the height of the view, in world units
+
+
+// ---------------------------------------------------------------------------
+// The scene. An example only, to show how a graph is built: a tile of
+// ground and a small turret with an arm, which keys q and e turn. Replace it
+// with the ground, the rocks and the rover.
+// ---------------------------------------------------------------------------
+
+function build_scene() {
+    return node("root", {}, [
+        leaf("tile", "cube", [0.6, 0.45, 0.35, 1], { t: [0, -0.05, 0], s: [4, 0.1, 4] }),
+        node("turret", { t: [0, 0, 0] }, [
+            leaf("base", "cube", [1, 1, 1, 1], { t: [0, 0.5, 0], s: [1.5, 0.2, 1] }),
+            leaf("first joint", "sphere", [0, 0, 0, 1], { t: [0.6, 0.75, 0], s: [0.2, 0.2, 0.2] }),
+            node("arm", { t: [0.7, 0.8, 0], r: [0.2, 0.2, 0.2] }, [
+                leaf("upper arm", "cube", [0.9, 0.9, 0.9, 1], { t: [0.6, 0, 0], s: [1.2, 0.15, 0.15] })
+            ])
+        ])
+    ]);
+}
+
+
+// ---------------------------------------------------------------------------
+// Input. Keys that act while held (driving, steering, the joints) are kept in
+// a set, and update() moves things by an amount proportional to the time
+// that has passed, so that the speed does not depend on the frame rate or on
+// the keyboard's repeat rate. Keys that act once go in on_key().
+// ---------------------------------------------------------------------------
+
+const held = new Set();
+
+function on_key(key) {
+    switch (key) {
+        case '0':       // one view / four views
+            break;
+        case ' ':       // wireframe / solid / both
+            break;
+    }
+}
+
+// dy > 0 when the wheel is scrolled down (towards the user)
+function on_wheel(dy) {
+    zoom = Math.max(1, Math.min(60, zoom * (1 + dy / 1000)));
+}
+
+// dt: seconds since the last frame
+function update(dt) {
+    const turret = find(scene, "turret");
+    const arm = find(turret, "arm");
+    if (held.has('q')) turret.transform.rotation[1] += 45 * dt;
+    if (held.has('e')) turret.transform.rotation[1] -= 45 * dt;
+    if (held.has('f')) arm.transform.rotation[2] += 45 * dt;
+    if (held.has('r')) arm.transform.rotation[2] -= 45 * dt;
+    if (held.has('a')) turret.transform.translation[2] += 2 * dt;
+    if (held.has('d')) turret.transform.translation[2] -= 2 * dt;
+    if (held.has('s')) turret.transform.translation[0] += 2 * dt;
+    if (held.has('w')) turret.transform.translation[0] -= 2 * dt;
+}
+
+
+// ---------------------------------------------------------------------------
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+function setup_input() {
+    // Single characters are taken in lower case, so that caps lock or shift
+    // do not leave a key held forever
+    const key_of = event => event.key.length == 1 ? event.key.toLowerCase() : event.key;
+    window.addEventListener("keydown", (event) => {
+        if (!event.repeat) on_key(key_of(event));
+        held.add(key_of(event));
+    });
+    window.addEventListener("keyup", (event) => held.delete(key_of(event)));
+    window.addEventListener("blur", () => held.clear());
+    canvas.addEventListener("wheel", (event) => {
+        on_wheel(event.deltaY);
+        event.preventDefault();     // don't let the page scroll as well
+    });
+}
+
+function setup(shaders) {
+    canvas = document.getElementById("gl-canvas");
+    gl = setupWebGL(canvas);
+
+    program = buildProgramFromSources(gl, shaders["flat.vert"], shaders["flat.frag"]);
+
+    CUBE.init(gl);
+    SPHERE.init(gl);
+    CYLINDER.init(gl);
+    PYRAMID.init(gl);
+    TORUS.init(gl);
+
+    scene = build_scene();
+    console.log("Primitives in the scene: " + count_primitives(scene));
+
+    resize();
+    window.addEventListener("resize", resize);
+    setup_input();
+
+    gl.clearColor(0.1, 0.1, 0.12, 1.0);
+    gl.enable(gl.DEPTH_TEST);
+
+    window.requestAnimationFrame(animate);
+}
+
+function draw_primitive(primitive, mv) {
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "u_model_view"), false, flatten(mv));
+    gl.uniform4fv(gl.getUniformLocation(program, "u_color"), primitive.colour);
+    PRIMITIVES[primitive.geometry].draw(gl, program, gl.TRIANGLES);
+}
+
+let last_time;
+
+function animate(time) {
+    window.requestAnimationFrame(animate);
+
+    const dt = last_time === undefined ? 0 : (time - last_time) / 1000;
+    last_time = time;
+    update(dt);
+
+    // One view only, over the whole canvas: an axonometric view, as an
+    // example, without distortion whatever the shape of the window
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    const aspect = canvas.width / canvas.height;
+    const V = lookAt(vec3(10, 8, 10), vec3(0, 0, 0), vec3(0, 1, 0));
+    const P = ortho(-aspect * zoom, aspect * zoom, -zoom, zoom, 1, 40);
+
+    gl.useProgram(program);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "u_projection"), false, flatten(P));
+
+    STACK.loadMatrix(V);
+    draw(scene, draw_primitive);
+
+    gl.useProgram(null);
+}
+
+loadShadersFromURLS(["flat.vert", "flat.frag"]).then(shaders => setup(shaders));
