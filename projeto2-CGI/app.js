@@ -25,15 +25,32 @@ let zoom = 3;           // half the height of the view, in world units
 
 // ---------------------------------------------------------------------------
 // The scene. An example only, to show how a graph is built: a tile of
-// ground and a small turret with an arm, which keys q and e turn. Replace it
+// ground and a small rover with an arm, which keys q and e turn. Replace it
 // with the ground, the rocks and the rover.
 // ---------------------------------------------------------------------------
+
+function wheel(name, x, z) {
+    return node(name, { t: [x, 0.25, z], r: [90, 0, 0] }, [
+        leaf("tire", "cylinder", [0.08, 0.08, 0.08, 1], { s: [0.5, 0.16, 0.5] }),
+        leaf("rim", "cylinder", [0.55, 0.5, 0.5, 1], { s: [0.32, 0.162, 0.32] }),
+    ]);
+}
 
 function build_scene() {
     return node("root", {}, [
         leaf("tile", "cube", [0.6, 0.45, 0.35, 1], { t: [0, -0.05, 0], s: [4, 0.1, 4] }),
-        node("turret", { t: [0, 0, 0] }, [
-            leaf("base", "cube", [1, 1, 1, 1], { t: [0, 0.5, 0], s: [1.5, 0.2, 1] }),
+        node("rover", { t: [0, 0, 0] }, [
+            leaf("base", "cube", [0.87, 0.73, 0.6, 1], { t: [0, 0.5, 0], s: [1.5, 0.2, 1] }),
+            leaf("solar panel", "cube", [0.1, 0.1, 0.3, 1], { t: [-0.4, 0.62, 0], s: [1, 0.04, 1.1] }),
+            leaf("bin", "cube", [0.85, 0.55, 0.15, 1], { t: [0.35, 0.725, -0.25], s: [0.4, 0.25, 0.4] }),
+            leaf("rocker L", "cube", [0.5, 0.5, 0.5, 1], { t: [0, 0.38, 0.58], s: [1.2, 0.06, 0.06] }),
+            leaf("rocker R", "cube", [0.5, 0.5, 0.5, 1], { t: [0, 0.38, -0.58], s: [1.2, 0.06, 0.06] }),
+            wheel("wheel FL", 0.55, 0.68),
+            wheel("wheel SL", 0.0, 0.68),
+            wheel("wheel TL", -0.55, 0.68),
+            wheel("wheel FR", 0.55, -0.68),
+            wheel("wheel SR", 0.0, -0.68),
+            wheel("wheel TR", -0.55, -0.68),
             leaf("first joint", "sphere", [0, 0, 0, 1], { t: [0.6, 0.75, 0], s: [0.2, 0.2, 0.2] }),
             node("arm", { t: [0.7, 0.8, 0], r: [0.2, 0.2, 0.2] }, [
                 leaf("upper arm", "cube", [0.9, 0.9, 0.9, 1], { t: [0.6, 0, 0], s: [1.2, 0.15, 0.15] })
@@ -68,16 +85,16 @@ function on_wheel(dy) {
 
 // dt: seconds since the last frame
 function update(dt) {
-    const turret = find(scene, "turret");
-    const arm = find(turret, "arm");
-    if (held.has('q')) turret.transform.rotation[1] += 45 * dt;
-    if (held.has('e')) turret.transform.rotation[1] -= 45 * dt;
+    const rover = find(scene, "rover");
+    const arm = find(rover, "arm");
+    if (held.has('q')) rover.transform.rotation[1] += 45 * dt;
+    if (held.has('e')) rover.transform.rotation[1] -= 45 * dt;
     if (held.has('f')) arm.transform.rotation[2] += 45 * dt;
     if (held.has('r')) arm.transform.rotation[2] -= 45 * dt;
-    if (held.has('a')) turret.transform.translation[2] += 2 * dt;
-    if (held.has('d')) turret.transform.translation[2] -= 2 * dt;
-    if (held.has('s')) turret.transform.translation[0] += 2 * dt;
-    if (held.has('w')) turret.transform.translation[0] -= 2 * dt;
+    if (held.has('a')) rover.transform.translation[2] += 2 * dt;
+    if (held.has('d')) rover.transform.translation[2] -= 2 * dt;
+    if (held.has('s')) rover.transform.translation[0] += 2 * dt;
+    if (held.has('w')) rover.transform.translation[0] -= 2 * dt;
 }
 
 
