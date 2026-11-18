@@ -221,7 +221,7 @@ Requirements:
 
 ## Illumination
 
-![The rover at night, with its headlights and work light](./assets/prj2/rover-night.png)
+![The rover at night, with its headlights and work light](prj2/rover-night.png)
 
 The first part of the project can be built with each primitive drawn in a
 flat colour. The second part replaces that with the **Phong illumination
