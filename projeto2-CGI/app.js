@@ -16,6 +16,7 @@ let gl;
 
 const PRIMITIVES = { cube: CUBE, sphere: SPHERE, cylinder: CYLINDER, pyramid: PYRAMID, torus: TORUS };
 
+//Constants defining colors used in project
 const white = [0.93, 0.89, 0.84, 1];
 const black = [0.08, 0.08, 0.08, 1];
 const grey = [0.55, 0.5, 0.5, 1];
@@ -25,6 +26,7 @@ const brown = [0.6, 0.45, 0.35, 1];
 const soft_brown = [0.5, 0.36, 0.28, 1];
 const silver = [0.72, 0.74, 0.8, 5];
 
+//Claw arm positions
 const ARM_X = 0.86;
 const ARM_Y = 0.55;
 const ARM_Z = -0.2;
@@ -39,8 +41,13 @@ let zoom = 3;
 // with the ground, the rocks and the rover.
 // ---------------------------------------------------------------------------
 
-function tiles(count, size)
-{
+/**
+ * Builds the checkered tile ground
+ * @param {*} count the number of tiles
+ * @param {*} size the size of each tile
+ * @returns the node containing all tiles
+ */
+function tiles(count, size) {
     const tiles = [];
     const start = -(count * size) / 2 + size / 2;
     for (let i = 0; i < count; i++) {
@@ -55,10 +62,15 @@ function tiles(count, size)
     return node("tiles", {}, tiles);
 }
 
+//Limits a random generated number to 2 given values (high and low)
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 
-function rocks(count)
-{
+/**
+ * Generates a 'count' number of rocks scattered throughout the ground with various sizes
+ * @param {*} count the number of rocks
+ * @returns a node containing all rocks in the program
+ */
+function rocks(count) {
     const rocks = [];
     for (let i = 0; i < count; i++) {
         let x, z;
@@ -71,49 +83,90 @@ function rocks(count)
         let sy = rand(0.2, 0.4);
         let sz = rand(0.2, 0.4);
 
-        rocks.push(leaf("rock " + i, "sphere", black, { t: [x, sy / 2, z], s: [sx / 2, sy / 2, sz / 2] }));
+        rocks.push(leaf("rock " + i, "sphere", grey, { t: [x, sy / 2, z], s: [sx / 2, sy / 2, sz / 2] }));
     }
     return node("rocks", {}, rocks);
 }
 
-function dots(name, colour, x, y, z, d, th)
-{
+/**
+ * Generates two opposite dots (used for camera and light dots of rover).
+ * @param {*} name given name
+ * @param {*} color given color
+ * @param {*} x position
+ * @param {*} y position
+ * @param {*} z position
+ * @param {*} d depth
+ * @param {*} th thickness
+ * @returns a node containing both bots
+ */
+function dots(name, color, x, y, z, d, th) {
     return node(name, {}, [
-        leaf("left", "cylinder", colour, { t: [x, y, -z], r: [0, 0, 90], s: [d, th, d] }),
-        leaf("right", "cylinder", colour, { t: [x, y, z], r: [0, 0, 90], s: [d, th, d] }),
+        leaf("left", "cylinder", color, { t: [x, y, -z], r: [0, 0, 90], s: [d, th, d] }),
+        leaf("right", "cylinder", color, { t: [x, y, z], r: [0, 0, 90], s: [d, th, d] }),
     ]);
 }
 
-function rockers(name, y, z, len, th)
-{
+/**
+ * Generates two opposite rockers where the wheels are fixated on.
+ * @param {*} name given name
+ * @param {*} y position
+ * @param {*} z position
+ * @param {*} len length
+ * @param {*} th thickness
+ * @returns a node containing both rockers
+ */
+function rockers(name, y, z, len, th) {
     return node(name, {}, [
         leaf("left", "cube", grey, { t: [0, y, z], s: [len, th, th] }),
         leaf("right", "cube", grey, { t: [0, y, -z], s: [len, th, th] }),
     ]);
 }
 
-function wheel(name, z)
-{
-    return node(name, { t: [0, 0.25, z], r: [90, 0, 0] }, [
-        node(name + " spin", {}, [
-            leaf("tire", "cylinder", black, { s: [0.5, 0.16, 0.5] }),
-            leaf("rim", "cylinder", grey, { s: [0.32, 0.162, 0.32] }),
-            leaf("spoke 1", "cube", black, { r: [0, 0, 0], s: [0.32, 0.17, 0.03] }),
-            leaf("spoke 2", "cube", black, { r: [0, 90, 0], s: [0.32, 0.17, 0.03] }),
+/**
+ * Generates a wheel composed of tire, rim and two spokes.
+ * The wheel has turning and spinning properties for commands.
+ * @param {*} name given name 
+ * @param {*} z position
+ * @returns a node with the components of the wheel
+ */
+function wheel(name, z) {
+    return node(name, { t: [0, 0.25, z] }, [
+        node(name + " steer", { r: [90, 0, 0] }, [
+            node(name + " spin", {}, [
+                leaf("tire", "cylinder", black, { s: [0.5, 0.16, 0.5] }),
+                leaf("rim", "cylinder", grey, { s: [0.32, 0.162, 0.32] }),
+                leaf("spoke 1", "cube", black, { r: [0, 0, 0], s: [0.32, 0.17, 0.03] }),
+                leaf("spoke 2", "cube", black, { r: [0, 90, 0], s: [0.32, 0.17, 0.03] }),
+            ])
         ])
     ]);
 }
 
-function wheel_pair(name, x)
-{
+/**
+ * Generates a pair of opposite wheels, used to avoid code repetition in build_scene.
+ * @param {*} name given name
+ * @param {*} x position
+ * @returns a node with the wheels
+ */
+function wheel_pair(name, x) {
     return node(name, { t: [x, 0, 0] }, [
         wheel(name + " left", 0.7),
         wheel(name + " right", -0.7),
     ]);
 }
 
-function bin(name, x, y, z, w, h, d)
-{
+/**
+ * Generates the empty trash bin of the rover, composed of four walls and a base.
+ * @param {*} name given name
+ * @param {*} x position
+ * @param {*} y position
+ * @param {*} z position
+ * @param {*} w width
+ * @param {*} h height
+ * @param {*} d depth
+ * @returns a node with the bin
+ */
+function bin(name, x, y, z, w, h, d) {
     const th = 0.03;
     return node(name, { t: [x, y, z] }, [
         leaf(name + "floor", "cube", black, { t: [0, th / 2, 0], s: [w, th, d] }),
@@ -124,8 +177,16 @@ function bin(name, x, y, z, w, h, d)
     ]);
 }
 
-function mast(name, x, z, h)
-{
+/**
+ * Generates a mast composed of base, pole and camera.
+ * The camera itself has the two intended dots.
+ * @param {*} name given name
+ * @param {*} x position
+ * @param {*} z position
+ * @param {*} h height
+ * @returns a node with the camera
+ */
+function mast(name, x, z, h) {
     return node(name, { t: [x, 0.6, z] }, [
         leaf("base", "sphere", grey, { s: [0.1, 0.1, 0.1] }),
         leaf("pole", "cylinder", white, { t: [0, h / 2, 0], s: [0.04, h, 0.04] }),
@@ -136,9 +197,21 @@ function mast(name, x, z, h)
     ]);
 }
 
-
-function solar_panel(name, x, y, z, w, h, d, cols, rows, tilt)
-{
+/**
+ * Generates a solar pannel with characteristic line grid, tilted to a certain angle.
+ * @param {*} name given name
+ * @param {*} x position
+ * @param {*} y position
+ * @param {*} z position
+ * @param {*} w width
+ * @param {*} h height
+ * @param {*} d depth
+ * @param {*} cols number of columns
+ * @param {*} rows number of rows
+ * @param {*} tilt angle of the pannel
+ * @returns a node the solar pannel
+ */
+function solar_panel(name, x, y, z, w, h, d, cols, rows, tilt) {
     const line = 0.012;
     const lift = 0.01;
     const parts = [leaf("cells", "cube", blue, { s: [w, h, d] })];
@@ -156,17 +229,28 @@ function solar_panel(name, x, y, z, w, h, d, cols, rows, tilt)
     return node(name, { t: [x, y + lift, z], r: [0, 0, tilt] }, parts);
 }
 
-function supports(name, x, y, z, w, d)
-{
+/**
+ * Generates two supports that go under the solar pannel.
+ * @param {*} name given name
+ * @param {*} x position
+ * @param {*} y position
+ * @param {*} z position
+ * @param {*} w width
+ * @param {*} d depth
+ * @returns a node with both supports
+ */
+function supports(name, x, y, z, w, d) {
     const supports = [];
-
     supports.push(leaf("support L", "cylinder", grey, { t: [w * 0.35, -0.06, d / 4], s: [0.04, 0.40, 0.04] }));
     supports.push(leaf("support R", "cylinder", grey, { t: [w * 0.35, -0.06, - d / 4], s: [0.04, 0.40, 0.04] }));
-
     return node(name, { t: [x, y, z] }, supports);
 }
-function claw()
-{
+
+/**
+ * Generates the rover claw.
+ * @returns a node with the claw structure (base and jaws)
+ */
+function claw() {
     return node("claw", { t: [0, 0.45, 0] }, [
         leaf("hand", "cube", black, { t: [0, 0.05, 0], s: [0.1, 0.05, 0.3] }),
         node("jaw 1", { t: [0, 0, GRIP_OPEN] }, [
@@ -178,8 +262,11 @@ function claw()
     ]);
 }
 
-function lower_arm()
-{
+/**
+ * Generates the rover forearm.
+ * @returns a node with the arm structure (joint, forearm and claw)
+ */
+function lower_arm() {
     return node("elbow", { t: [0, 0.65, 0], r: [0, 0, -145] }, [
         leaf("elbow joint", "sphere", grey, { s: [0.08, 0.08, 0.08] }),
         leaf("forearm", "cube", white, { t: [0, 0.250, 0], s: [0.05, 0.45, 0.05] }),
@@ -187,8 +274,14 @@ function lower_arm()
     ]);
 }
 
-function arm(x, y, z)
-{
+/**
+ * Generates the rover arm.
+ * @param {*} x position
+ * @param {*} y position
+ * @param {*} z position
+ * @returns a node with the arm structure (joint and rest)
+ */
+function arm(x, y, z) {
     return node("arm", { t: [x, y, z] }, [
         leaf("arm joint", "sphere", grey, { s: [0.08, 0.08, 0.08] }),
         node("shoulder", { t: [0, 0, 0], r: [0, 0, -25] }, [
@@ -198,8 +291,11 @@ function arm(x, y, z)
     ]);
 }
 
-function build_scene()
-{
+/**
+ * Build the complete scene (rover, ground and rocks).
+ * @returns a node containing all components of the scene
+ */
+function build_scene() {
     return node("root", {}, [
         tiles(40, 2),
         rocks(8),
@@ -228,18 +324,17 @@ function build_scene()
 // the keyboard's repeat rate. Keys that act once go in on_key().
 // ---------------------------------------------------------------------------
 
+const WHEELS = ["front left", "front right", "center left", "center right", "back left", "back right"];
 const GRIP_OPEN = 0.05;
 const GRIP_CLOSE = -0.035;
-const WHEELS = ["front left", "front right", "center left", "center right", "back left", "back right"];
-let wheel_roll = 0;
 
 const held = new Set();
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+let wheel_roll = 0;
+let steer = 0;
 let gripper_closed = false;
 
-function on_key(key)
-{
+function on_key(key) {
     switch (key) {
         case '0':       // one view / four views
             break;
@@ -251,76 +346,88 @@ function on_key(key)
     }
 }
 
-function on_wheel(dy)
-{
+function on_wheel(dy) {
     zoom = Math.max(1, Math.min(60, zoom * (1 + dy / 1000)));
 }
 
-function turn(joint, axis, plus, minus, dt, lo, hi, rate)
-{
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function turn(joint, axis, plus, minus, dt, lo, hi, rate) {
     if (lo === undefined) lo = -Infinity;
     if (hi === undefined) hi = Infinity;
     if (rate === undefined) rate = 45;
     const dir = (held.has(plus) ? 1 : 0) - (held.has(minus) ? 1 : 0);
     if (dir != 0) {
-        joint.transform.rotation[axis] = clamp(joint.transform.rotation[axis] + dir * 45 * dt, lo, hi);
+        joint.transform.rotation[axis] = clamp(joint.transform.rotation[axis] + dir * rate * dt, lo, hi);
     }
 }
 
-function update(dt)
-{
+function dir_movements(rover, dt) {
+    const v = ((held.has('w') ? 1 : 0) - (held.has('s') ? 1 : 0)) * 1.5;
+    const steer_dir = ((held.has('a') ? 1 : 0) - (held.has('d') ? 1 : 0));
+
+    wheel_roll -= (v * dt / 0.25) * 180 / Math.PI;
+    steer = clamp(steer + steer_dir * 45 * dt, -20, 20);
+
+    for (const name of WHEELS) {
+        find(rover, name + " spin").transform.rotation[1] = wheel_roll;
+    }
+    for (const name of ["front left", "front right"]) {
+        find(rover, name + " steer").transform.rotation[1] = steer;
+    }
+    for (const name of ["back left", "back right"]) {
+        find(rover, name + " steer").transform.rotation[1] = -steer;
+    }
+
+    const yaw = rover.transform.rotation[1]* Math.PI / 180;
+    rover.transform.translation[0] += Math.cos(yaw) * v * dt;
+    rover.transform.translation[2] -= Math.sin(yaw) * v * dt;
+
+    const omega = v * Math.tan(steer * Math.PI / 180) / 0.55;
+    rover.transform.rotation[1] += omega * dt * 180 / Math.PI;
+}
+
+function jaw_movements(jaw1, jaw2, dt) {
+    const target = gripper_closed ? GRIP_CLOSE : GRIP_OPEN;
+    const cur = jaw1.transform.translation[2];
+    const step = 0.1 * dt;
+    const ag = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
+    jaw1.transform.translation[2] = ag;
+    jaw2.transform.translation[2] = -ag;
+}
+
+function update(dt) {
     const rover = find(scene, "rover");
+    dir_movements(rover, dt);
+
     const arm = find(rover, "arm");
     const shoulder = find(arm, "shoulder");
     const elbow = find(shoulder, "elbow");
     const claw = find(elbow, "claw");
-    const jaw1 = find(claw, "jaw 1");
-    const jaw2 = find(claw, "jaw 2");
     const camera = find(rover, "camera");
-
-    const v = ((held.has('w') ? 1 : 0) - (held.has('s') ? 1 : 0)) * 1.5;
-    const yaw = rover.transform.rotation[1];
-    rover.transform.translation[0] += Math.cos(yaw) * v * dt;
-    rover.transform.translation[2] -= Math.sin(yaw) * v * dt;
-
-    wheel_roll -= (v * dt / 0.25) * 180 / Math.PI;
-    for (const name of WHEELS) {
-        find(rover, name + " spin").transform.rotation[1] = wheel_roll;
-    }
-
-    //directional movements
-
-    turn(rover, 1, 'z', 'x', dt);
-
-    //movements
 
     turn(arm, 1, 'q', 'e', dt, -50, 50);
     turn(shoulder, 2, 'u', 'j', dt, -79, -10);
     turn(elbow, 2, 'i', 'k', dt, -150, 150);
     turn(claw, 1, 'o', 'l', dt, -180, 180);
-    turn(camera, 1, 'f', 'd', dt, -90, 90);
+    turn(camera, 1, 'f', 'h', dt, -90, 90);
     turn(camera, 2, 't', 'g', dt, -45, 45);
 
-    const target = gripper_closed ? GRIP_CLOSE : GRIP_OPEN;
-    const cur = jaw1.transform.translation[2];
-    const step = 0.1 * dt;                     // ~0.5 s para abrir ou fechar
-    const ag = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
-    jaw1.transform.translation[2] = ag;
-    jaw2.transform.translation[2] = -ag;
+    const jaw1 = find(claw, "jaw 1");
+    const jaw2 = find(claw, "jaw 2");
+    jaw_movements(jaw1, jaw2, dt);
 }
 
 // ---------------------------------------------------------------------------
 
 let last_time;
 
-function resize()
-{
+function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 }
 
-function setup_input()
-{
+function setup_input() {
     const key_of = event => event.key.length == 1 ? event.key.toLowerCase() : event.key;
     window.addEventListener("keydown", (event) =>
     {
@@ -336,8 +443,7 @@ function setup_input()
     });
 }
 
-function setup(shaders)
-{
+function setup(shaders) {
     canvas = document.getElementById("gl-canvas");
     gl = setupWebGL(canvas);
 
@@ -362,15 +468,13 @@ function setup(shaders)
     window.requestAnimationFrame(animate);
 }
 
-function draw_primitive(primitive, mv)
-{
+function draw_primitive(primitive, mv) {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "u_model_view"), false, flatten(mv));
     gl.uniform4fv(gl.getUniformLocation(program, "u_color"), primitive.colour);
     PRIMITIVES[primitive.geometry].draw(gl, program, gl.TRIANGLES);
 }
 
-function animate(time)
-{
+function animate(time) {
     window.requestAnimationFrame(animate);
 
     const dt = last_time === undefined ? 0 : (time - last_time) / 1000;
