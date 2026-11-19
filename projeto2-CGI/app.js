@@ -23,6 +23,7 @@ const blue = [0.1, 0.1, 0.3, 1];
 const yellow = [0.85, 0.55, 0.15, 1];
 const brown = [0.6, 0.45, 0.35, 1];
 const soft_brown = [0.5, 0.36, 0.28, 1];
+const silver = [0.72, 0.74, 0.8, 5];
 
 const ARM_X = 0.86;
 const ARM_Y = 0.55;
@@ -38,9 +39,10 @@ let zoom = 3;
 // with the ground, the rocks and the rover.
 // ---------------------------------------------------------------------------
 
-function tiles(count, size) {
+function tiles(count, size)
+{
     const tiles = [];
-    const start = -(count * size) / 2 + size / 2; 
+    const start = -(count * size) / 2 + size / 2;
     for (let i = 0; i < count; i++) {
         for (let j = 0; j < count; j++) {
             const color = (i + j) % 2 === 0 ? brown : soft_brown;
@@ -53,50 +55,57 @@ function tiles(count, size) {
     return node("tiles", {}, tiles);
 }
 
-function rocks() {
-    
+function rocks()
+{
+
 }
 
-function dots(name, colour, x, y, z, d, th) {
+function dots(name, colour, x, y, z, d, th)
+{
     return node(name, {}, [
-        leaf("left",  "cylinder", colour, { t: [x, y, -z], r: [0, 0, 90], s: [d, th, d] }),
-        leaf("right", "cylinder", colour, { t: [x, y,  z], r: [0, 0, 90], s: [d, th, d] }),
+        leaf("left", "cylinder", colour, { t: [x, y, -z], r: [0, 0, 90], s: [d, th, d] }),
+        leaf("right", "cylinder", colour, { t: [x, y, z], r: [0, 0, 90], s: [d, th, d] }),
     ]);
 }
 
-function rockers(name, y, z, len, th) {
+function rockers(name, y, z, len, th)
+{
     return node(name, {}, [
-        leaf("left",  "cube", grey, { t: [0, y,  z], s: [len, th, th] }),
+        leaf("left", "cube", grey, { t: [0, y, z], s: [len, th, th] }),
         leaf("right", "cube", grey, { t: [0, y, -z], s: [len, th, th] }),
     ]);
 }
 
-function wheel(name, z) {
+function wheel(name, z)
+{
     return node(name, { t: [0, 0.25, z], r: [90, 0, 0] }, [
         leaf("tire", "cylinder", black, { s: [0.5, 0.16, 0.5] }),
         leaf("rim", "cylinder", grey, { s: [0.32, 0.162, 0.32] }),
     ]);
 }
 
-function wheel_pair(name, x) {
+function wheel_pair(name, x)
+{
     return node(name, { t: [x, 0, 0] }, [
         wheel("left", 0.7),
         wheel("right", -0.7),
     ]);
 }
 
-function bin(name, x, y, z, w, h, d) {
+function bin(name, x, y, z, w, h, d)
+{
     const th = 0.03;
     return node(name, { t: [x, y, z] }, [
-        leaf(name + "floor", "cube", yellow, { t: [0, th / 2, 0], s: [w, th, d] }),
+        leaf(name + "floor", "cube", black, { t: [0, th / 2, 0], s: [w, th, d] }),
         leaf(name + "front", "cube", yellow, { t: [0, h / 2, d / 2 - th / 2], s: [w, h, th] }),
-        leaf(name + "back", "cube", yellow, { t: [0, h / 2, -d / 2 + th / 2], s: [w, h, th] }),
-        leaf(name + "left", "cube", yellow, { t: [-w / 2 + th / 2, h / 2, 0], s: [th, h, d - 2 * th] }),
-        leaf(name + "right", "cube", yellow, { t: [w / 2 - th / 2, h / 2, 0], s: [th, h, d - 2 * th] })
+        leaf(name + "back", "cube", grey, { t: [0, h / 2, -d / 2 + th / 2], s: [w, h, th] }),
+        leaf(name + "left", "cube", blue, { t: [-w / 2 + th / 2, h / 2, 0], s: [th, h, d - 2 * th] }),
+        leaf(name + "right", "cube", brown, { t: [w / 2 - th / 2, h / 2, 0], s: [th, h, d - 2 * th] })
     ]);
 }
 
-function camera(name, x, z, h) {
+function camera(name, x, z, h)
+{
     return node(name, { t: [x, 0.6, z] }, [
         leaf("base", "sphere", grey, { s: [0.1, 0.1, 0.1] }),
         leaf("pole", "cylinder", white, { t: [0, h / 2, 0], s: [0.04, h, 0.04] }),
@@ -105,19 +114,44 @@ function camera(name, x, z, h) {
     ]);
 }
 
-function claw() {
+function solar_panel(name, x, y, z, w, h, d, cols, rows, tilt)
+{
+    const line = 0.012;     // largura das linhas
+    const lift = 0.01;      // espessura das linhas (metade fica acima do painel)
+    const parts = [
+        leaf("cells", "cube", blue, { s: [w, h, d] }),
+    ];
+
+    // moldura
+    parts.push(leaf("frame L", "cube", silver, { t: [-w / 2 + line, h / 2, 0], s: [line * 2, lift, d] }));
+    parts.push(leaf("frame R", "cube", silver, { t: [w / 2 - line, h / 2, 0], s: [line * 2, lift, d] }));
+    parts.push(leaf("frame F", "cube", silver, { t: [0, h / 2, d / 2 - line], s: [w, lift, line * 2] }));
+    parts.push(leaf("frame B", "cube", silver, { t: [0, h / 2, -d / 2 + line], s: [w, lift, line * 2] }));
+
+    // linhas entre células
+    for (let i = 1; i < cols; i++)
+        parts.push(leaf("col " + i, "cube", silver, { t: [-w / 2 + i * w / cols, h / 2, 0], s: [line, lift, d] }));
+    for (let j = 1; j < rows; j++)
+        parts.push(leaf("row " + j, "cube", silver, { t: [0, h / 2, -d / 2 + j * d / rows], s: [w, lift, line] }));
+
+    return node(name, { t: [x, y + lift, z], r: [0, 0, tilt] }, parts);
+}
+
+function claw()
+{
     return node("claw", { t: [0, 0.45, 0] }, [
         leaf("hand", "cube", black, { t: [0, 0.05, 0], s: [0.1, 0.05, 0.3] }),
-        node("jaw 1", { t: [0, 0, 0] }, [
+        node("jaw 1", { t: [0, 0, GRIP_OPEN] }, [
             leaf("jaw 1 shape", "cube", grey, { t: [0.01, 0.15, 0.05], s: [0.02, 0.15, 0.03] }),
         ]),
-        node("jaw 2", { t: [0, 0, 0] }, [
+        node("jaw 2", { t: [0, 0, -GRIP_OPEN] }, [
             leaf("jaw 2 shape", "cube", grey, { t: [0.01, 0.15, -0.05], s: [0.02, 0.15, 0.03] }),
         ]),
     ]);
 }
 
-function lower_arm() {
+function lower_arm()
+{
     return node("elbow", { t: [0, 0.65, 0], r: [0, 0, -145] }, [
         leaf("elbow joint", "sphere", grey, { s: [0.08, 0.08, 0.08] }),
         leaf("forearm", "cube", white, { t: [0, 0.250, 0], s: [0.05, 0.45, 0.05] }),
@@ -125,7 +159,8 @@ function lower_arm() {
     ]);
 }
 
-function arm(x, y, z) {
+function arm(x, y, z)
+{
     return node("arm", { t: [x, y, z] }, [
         leaf("arm joint", "sphere", grey, { s: [0.08, 0.08, 0.08] }),
         node("shoulder", { t: [0, 0, 0], r: [0, 0, -25] }, [
@@ -135,7 +170,8 @@ function arm(x, y, z) {
     ]);
 }
 
-function build_scene() {
+function build_scene()
+{
     return node("root", {}, [
         tiles(40, 2),
         node("rover", { t: [0, 0, 0] }, [
@@ -146,11 +182,11 @@ function build_scene() {
             wheel_pair("center", 0.0),
             wheel_pair("back", -0.55),
             leaf("exauster", "cylinder", grey, { t: [-0.8, 0.47, 0.35], r: [0, 0, 90], s: [0.1, 0.25, 0.1] }),
-            leaf("solar panel", "cube", blue, { t: [-0.4, 0.62, 0], s: [1, 0.04, 1.3] }),
-            bin("bin", 0.35, 0.6, -0.25, 0.4, 0.25, 0.4),
+            bin("bin", 0.45, 0.6, -0.25, 0.4, 0.25, 0.4),
             camera("camera", 0.58, 0.35, 0.9),
             leaf("arm mount", "cylinder", black, { t: [ARM_X - 0.09, ARM_Y - 0.06, ARM_Z], r: [0, 90, 0], s: [0.2, 0.1, 0.2] }),
             arm(ARM_X, ARM_Y, ARM_Z),
+            solar_panel("solar panel", -0.6, 0.62, 0, 1, 0.04, 1.3, 4, 5, 15),
         ])
     ]);
 }
@@ -162,15 +198,16 @@ function build_scene() {
 // the keyboard's repeat rate. Keys that act once go in on_key().
 // ---------------------------------------------------------------------------
 
-const GRIP_OPEN = 0;
-const GRIP_CLOSE = 0.04;
+const GRIP_OPEN = 0.05;
+const GRIP_CLOSE = -0.035;
 
 const held = new Set();
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-let gripper_closed = true;
+let gripper_closed = false;
 
-function on_key(key) {
+function on_key(key)
+{
     switch (key) {
         case '0':       // one view / four views
             break;
@@ -182,11 +219,13 @@ function on_key(key) {
     }
 }
 
-function on_wheel(dy) {
+function on_wheel(dy)
+{
     zoom = Math.max(1, Math.min(60, zoom * (1 + dy / 1000)));
 }
 
-function turn(joint, axis, plus, minus, dt, lo, hi) {
+function turn(joint, axis, plus, minus, dt, lo, hi)
+{
     if (lo === undefined) lo = -Infinity;
     if (hi === undefined) hi = Infinity;
     const dir = (held.has(plus) ? 1 : 0) - (held.has(minus) ? 1 : 0);
@@ -195,7 +234,8 @@ function turn(joint, axis, plus, minus, dt, lo, hi) {
     }
 }
 
-function update(dt) {
+function update(dt)
+{
     const rover = find(scene, "rover");
     const arm = find(rover, "arm");
     const shoulder = find(arm, "shoulder");
@@ -211,8 +251,8 @@ function update(dt) {
     //claw movements
 
     turn(arm, 1, 'q', 'e', dt, -50, 50);
-    turn(shoulder, 2, 'u', 'j', dt, -80, -10);
-    turn(elbow, 2, 'i', 'k', dt, -150, 100);
+    turn(shoulder, 2, 'u', 'j', dt, -79, -10);
+    turn(elbow, 2, 'i', 'k', dt, -150, 150);
     turn(claw, 1, 'o', 'l', dt, -180, 180);
 
     const target = gripper_closed ? GRIP_CLOSE : GRIP_OPEN;
@@ -227,12 +267,14 @@ function update(dt) {
 
 let last_time;
 
-function resize() {
+function resize()
+{
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 }
 
-function setup_input() {
+function setup_input()
+{
     const key_of = event => event.key.length == 1 ? event.key.toLowerCase() : event.key;
     window.addEventListener("keydown", (event) =>
     {
@@ -248,7 +290,8 @@ function setup_input() {
     });
 }
 
-function setup(shaders) {
+function setup(shaders)
+{
     canvas = document.getElementById("gl-canvas");
     gl = setupWebGL(canvas);
 
@@ -273,13 +316,15 @@ function setup(shaders) {
     window.requestAnimationFrame(animate);
 }
 
-function draw_primitive(primitive, mv) {
+function draw_primitive(primitive, mv)
+{
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "u_model_view"), false, flatten(mv));
     gl.uniform4fv(gl.getUniformLocation(program, "u_color"), primitive.colour);
     PRIMITIVES[primitive.geometry].draw(gl, program, gl.TRIANGLES);
 }
 
-function animate(time) {
+function animate(time)
+{
     window.requestAnimationFrame(animate);
 
     const dt = last_time === undefined ? 0 : (time - last_time) / 1000;
