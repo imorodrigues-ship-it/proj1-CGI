@@ -116,23 +116,22 @@ function camera(name, x, z, h)
 
 function solar_panel(name, x, y, z, w, h, d, cols, rows, tilt)
 {
-    const line = 0.012;     // largura das linhas
-    const lift = 0.01;      // espessura das linhas (metade fica acima do painel)
-    const parts = [
-        leaf("cells", "cube", blue, { s: [w, h, d] }),
-    ];
+    const line = 0.012;
+    const lift = 0.01;
+    const parts = [leaf("cells", "cube", blue, { s: [w, h, d] })];
 
-    // moldura
     parts.push(leaf("frame L", "cube", silver, { t: [-w / 2 + line, h / 2, 0], s: [line * 2, lift, d] }));
     parts.push(leaf("frame R", "cube", silver, { t: [w / 2 - line, h / 2, 0], s: [line * 2, lift, d] }));
     parts.push(leaf("frame F", "cube", silver, { t: [0, h / 2, d / 2 - line], s: [w, lift, line * 2] }));
     parts.push(leaf("frame B", "cube", silver, { t: [0, h / 2, -d / 2 + line], s: [w, lift, line * 2] }));
 
-    // linhas entre células
     for (let i = 1; i < cols; i++)
         parts.push(leaf("col " + i, "cube", silver, { t: [-w / 2 + i * w / cols, h / 2, 0], s: [line, lift, d] }));
     for (let j = 1; j < rows; j++)
         parts.push(leaf("row " + j, "cube", silver, { t: [0, h / 2, -d / 2 + j * d / rows], s: [w, lift, line] }));
+
+    parts.push(leaf("support F", "cylinder", grey, { t: [w * 0.35, -0.06, d / 4],  s: [0.04, 0.12, 0.04] }));
+    parts.push(leaf("support B", "cylinder", grey, { t: [w * 0.35, -0.06, -d / 4], s: [0.04, 0.12, 0.04] }));
 
     return node(name, { t: [x, y + lift, z], r: [0, 0, tilt] }, parts);
 }
@@ -181,12 +180,12 @@ function build_scene()
             wheel_pair("front", 0.55),
             wheel_pair("center", 0.0),
             wheel_pair("back", -0.55),
+            solar_panel("solar panel", -0.43, 0.67, 0, 1, 0.04, 1.3, 4, 5, 15),
             leaf("exauster", "cylinder", grey, { t: [-0.8, 0.47, 0.35], r: [0, 0, 90], s: [0.1, 0.25, 0.1] }),
-            bin("bin", 0.45, 0.6, -0.25, 0.4, 0.25, 0.4),
+            bin("bin", 0.45, 0.6, -0.25, 0.4, 0.2, 0.4),
             camera("camera", 0.58, 0.35, 0.9),
             leaf("arm mount", "cylinder", black, { t: [ARM_X - 0.09, ARM_Y - 0.06, ARM_Z], r: [0, 90, 0], s: [0.2, 0.1, 0.2] }),
             arm(ARM_X, ARM_Y, ARM_Z),
-            solar_panel("solar panel", -0.6, 0.62, 0, 1, 0.04, 1.3, 4, 5, 15),
         ])
     ]);
 }
