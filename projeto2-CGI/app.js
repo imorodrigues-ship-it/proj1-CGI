@@ -343,6 +343,9 @@ function on_key(key) {
         case 'p':
             gripper_closed = !gripper_closed;
             break;
+        case 'x':
+            steer = 0;
+            break;
     }
 }
 
