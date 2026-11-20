@@ -1,6 +1,6 @@
 import { loadShadersFromURLS, buildProgramFromSources, setupWebGL } from "../../libs/utils.js";
 import { flatten, lookAt, ortho, vec3 } from "../../libs/MV.js";
-import { node, leaf, find, count_primitives, draw } from "./scenegraph.js";
+import { node, leaf, find, count_primitives, draw, system, world_pos, reparent } from "./scenegraph.js";
 
 import * as STACK from "../../libs/stack.js";
 import * as CUBE from "../../libs/objects/cube.js";
@@ -83,7 +83,7 @@ function rocks(count) {
         let sy = rand(0.2, 0.4);
         let sz = rand(0.2, 0.4);
 
-        rocks.push(leaf("rock " + i, "sphere", grey, { t: [x, sy / 2, z], s: [sx / 2, sy / 2, sz / 2] }));
+        rocks.push(leaf("rock " + i, "sphere", black, { t: [x, sy / 2, z], s: [sx / 2, sy / 2, sz / 2] }));
     }
     return node("rocks", {}, rocks);
 }
@@ -248,11 +248,13 @@ function supports(name, x, y, z, w, d) {
 
 /**
  * Generates the rover claw.
+ * Includes "tool" node, representing the center of the claw for grabbing and releasing rocks.
  * @returns a node with the claw structure (base and jaws)
  */
 function claw() {
     return node("claw", { t: [0, 0.45, 0] }, [
         leaf("hand", "cube", black, { t: [0, 0.05, 0], s: [0.1, 0.05, 0.3] }),
+        node("tool", { t: [0, 0.2, 0] }),
         node("jaw 1", { t: [0, 0, GRIP_OPEN] }, [
             leaf("jaw 1 shape", "cube", grey, { t: [0.01, 0.15, 0.05], s: [0.02, 0.15, 0.03] }),
         ]),
@@ -332,7 +334,9 @@ const held = new Set();
 
 let wheel_roll = 0;
 let steer = 0;
+let bin_count = 0;
 let gripper_closed = false;
+let curr_rock = null;
 
 function on_key(key) {
     switch (key) {
@@ -342,6 +346,8 @@ function on_key(key) {
             break;
         case 'p':
             gripper_closed = !gripper_closed;
+            if (gripper_closed && !curr_rock) grab();
+            if (!gripper_closed && curr_rock) release();
             break;
         case 'x':
             steer = 0;
@@ -397,6 +403,44 @@ function jaw_movements(jaw1, jaw2, dt) {
     const ag = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
     jaw1.transform.translation[2] = ag;
     jaw2.transform.translation[2] = -ag;
+}
+
+function grab() {
+    const tool = find(scene, "tool");
+    const tp = world_pos(tool);
+
+    let closest_rock = null;
+    let closest_distance = 0.25;
+    for (const rock of find(scene, "rocks").children) {
+        const d = Math.hypot(...rock.transform.translation.map((v, i) => v - tp[i]));
+        if (d < closest_distance) {
+            closest_distance = d;
+            closest_rock = rock;
+        }
+    }
+    if (closest_rock) {
+        reparent(closest_rock, tool);
+        closest_rock.transform.translation = [0,0,0];
+        curr_rock = closest_rock;
+    }
+}
+
+function release() {
+    const tool = find(scene, "tool");
+    const bin = find(scene, "bin");
+    const tp = world_pos(tool);
+    const bp = system(bin, tp);
+    const r = curr_rock.transform.scale[1];
+
+    if (Math.abs(bp[0]) < 0.2 && Math.abs(bp[2]) < 0.2) {
+        reparent(curr_rock, bin);
+        curr_rock.transform.translation = [bp[0], 0.03 + r, bp[2]];
+        bin_count++;
+    } else {
+        reparent(curr_rock, find(scene, "rocks"));
+        curr_rock.transform.translation = [tp[0], r, tp[2]];
+    }
+    curr_rock = null;
 }
 
 function update(dt) {

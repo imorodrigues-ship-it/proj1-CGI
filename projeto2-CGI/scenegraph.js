@@ -1,4 +1,4 @@
-import { mult, translate, rotateX, rotateY, rotateZ, scalem } from "../../libs/MV.js";
+import { mult, translate, rotateX, rotateY, rotateZ, scalem, inverse } from "../../libs/MV.js";
 import * as STACK from "../../libs/stack.js";
 
 /**
@@ -34,6 +34,43 @@ export function leaf(name, geometry, colour, trs = {}) {
     const n = node(name, trs);
     n.primitive = { geometry: geometry, colour: colour };
     return n;
+}
+
+/*
+* Returns a matrix capable of converting system coordinates into
+* world coordinates, given a node of that system.
+*/
+export function world(n) {
+    let m = transform(n);
+    for (let p = n.parent; p; p = p.parent) {
+        m = mult(transform(p), m);
+    }
+    return m;
+}
+
+/*
+* Converts a point in world coordinates into a given node's
+* system coordinates.
+*/
+export function system(n, p) {
+    const q = mult(inverse(world(n)), vec4(p[0], p[1], p[2], 1));
+    return [q[0], q[1], q[2]];
+}
+
+//Returns the world coordinates of a node
+export function world_pos(n) {
+    const m = world(n);
+    return [m[0][3], m[1][3], m[2][3]];
+}
+
+//Given two nodes, changes parent of first to the second
+export function reparent(n, m) {
+    if (n.parent) {
+        const i = n.parent.children.indexOf(n);
+        if (i >= 0) n.parent.children.splice(i, 1);
+    }
+    m.children.push(n);
+    n.parent = m;
 }
 
 // The node's own transformation, from its coordinate system to its parent's
